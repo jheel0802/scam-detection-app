@@ -2,7 +2,7 @@
 
 A full-stack web application that analyzes phone calls in real-time to detect scam indicators, using browser microphone capture, speech-to-text with ElevenLabs, and LLM analysis with Google Gemini.
 
-## 📋 Overview
+## Overview
 
 This application provides real-time detection of common scam patterns in phone conversations:
 
@@ -40,11 +40,11 @@ This application provides real-time detection of common scam patterns in phone c
 ## 🛠️ Tech Stack
 
 - **Backend**: Python 3.8+ with FastAPI
-- **Frontend**: HTML5 + vanilla JavaScript (no dependencies)
+- **Frontend**: HTML5 + JavaScript
 - **Audio APIs**: 
   - Web Audio API (browser microphone)
   - ElevenLabs Speech-to-Text API
-  - Google Gemini API (via Backboard)
+  - Google Gemini API
 - **Async**: Python asyncio for non-blocking processing
 
 ## 📦 Prerequisites
@@ -113,7 +113,6 @@ python main.py
 
 The backend will be available at `http://localhost:8000`
 
-Health check: http://localhost:8000/health
 
 ### 3. Open Frontend
 
@@ -219,18 +218,6 @@ Reset the conversation context (start new call).
 }
 ```
 
-### GET `/health`
-Health check endpoint.
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "service": "scam-detection-api",
-  "context_items": 5
-}
-```
-
 ### GET `/context`
 Get current context (for debugging).
 
@@ -243,7 +230,7 @@ Get current context (for debugging).
 }
 ```
 
-## 🎵 How It Works
+## How It Works
 
 ### Real-Time Audio Processing
 
@@ -278,7 +265,7 @@ Get current context (for debugging).
    - List of detected indicators
    - Confidence score
 
-## 🛡️ Scam Detection Features
+## Scam Detection Features
 
 The system identifies:
 
@@ -290,7 +277,7 @@ The system identifies:
 - **Job Scams**: Work-from-home recruitment fraud
 - **Phishing**: Credential harvesting
 
-## 🧪 Testing
+## Testing
 
 ### Test Cases
 
@@ -306,18 +293,6 @@ The system identifies:
    - Say: "Act now, your account will be closed immediately if you don't verify."
    - Should detect urgency and multi-factor triggers
 
-### Simulate Without Speaking
-
-You can also test by sending raw transcripts to the `/analyze` endpoint:
-
-```bash
-# From terminal:
-curl -X POST http://localhost:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"transcript": "Verify your credit card details now or your account will be suspended"}'
-
-# Expected: HIGH risk, reasons about urgency and financial info request
-```
 
 ## 📝 Project Structure
 
@@ -346,8 +321,8 @@ Edit `backend/.env`:
 
 ```ini
 # API Keys
-ELEVENLABS_API_KEY=sk_xxx
-GEMINI_API_KEY=AIza_xxx
+ELEVENLABS_API_KEY=xxx
+GEMINI_API_KEY=xxx
 
 # Server
 BACKEND_PORT=8000
@@ -412,43 +387,9 @@ lsof -i :8000
 - Get fresh API key from https://aistudio.google.com/app/apikey
 - Ensure API is enabled in Google Cloud Console
 - Check request rate limits
-
-## 🚀 Deployment
-
-### Production Checklist
-
-- [ ] Use environment variables for all secrets
-- [ ] Set FRONTEND_URL to production domain
-- [ ] Enable HTTPS (microphone requires secure context)
-- [ ] Configure CORS properly for production domain
-- [ ] Increase API rate limits and quotas
-- [ ] Add request logging and monitoring
-- [ ] Use production-grade server (e.g., Gunicorn)
-- [ ] Add database for transcript history
-- [ ] Implement user authentication
-
-### Deploy Backend (Example: AWS EC2)
-
-```bash
-# Install dependencies
-pip install gunicorn
-gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
-
-# Or use Docker
-docker build -t scam-detector .
-docker run -e ELEVENLABS_API_KEY=xxx -e GEMINI_API_KEY=xxx -p 8000:8000 scam-detector
-```
-
-### Deploy Frontend
-
-- Static HTML, CSS, JS - deploy to any static host
-- Vercel, Netlify, GitHub Pages, AWS S3 + CloudFront, etc.
-- Update `API_ENDPOINT` in `index.html` to point to backend
-
 ## 📊 Performance Metrics
 
 - **Latency**: ~2-3 seconds per chunk (including transcription and analysis)
-- **Throughput**: Multiple concurrent users
 - **Accuracy**: Depends on Gemini model and prompt quality
 - **Storage**: Transcripts kept in memory (30-second window)
 
@@ -499,7 +440,6 @@ This tool is designed to help identify potential scam patterns but should not be
 
 For official scam reporting:
 - **FTC**: https://reportfraud.ftc.gov/
-- **FBI**: https://www.fbi.gov/contact-us/its/white-collar-crime/internet-fraud-complaint-center
 - **IC3**: https://www.ic3.gov/
 
 ## 📞 Support
