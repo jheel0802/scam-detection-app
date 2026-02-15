@@ -27,6 +27,10 @@ async def transcribe_audio(audio_data_base64: str) -> Optional[str]:
         logger.error("ElevenLabs API key not configured")
         return None
     
+    if len(audio_data_base64) < 500: 
+        logger.warning("Chunk too small, skipping transcription.")
+        return "" # Return empty string instead of crashing
+    
     try:
         # Decode base64 audio data
         audio_bytes = base64.b64decode(audio_data_base64)

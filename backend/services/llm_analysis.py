@@ -1,87 +1,95 @@
-"""
-LLM Analysis service using Backboard.io API.
-Targets the Gemini 1.5 Flash model through Backboard's unified gateway.
+"""LLM Analysis service using Google Gemini API.
+Analyzes transcripts for scam indicators.
+
+TODO: Integrate Backboard.io for conversation persistence later
 """
 import httpx
 import json
 import logging
 from typing import Dict, Optional
-from config import BACKBOARD_API_KEY # Ensure this exists in your config.py!
+from config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)
 
-# Backboard unified API endpoint (OpenAI-compatible)
-BACKBOARD_URL = "https://api.backboard.io/v1/chat/completions"
+# Google Gemini API
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 async def analyze_transcript(
     transcript: str,
     context: Optional[str] = None
 ) -> Optional[Dict]:
+    """Analyze transcript for scam indicators using Google Gemini API.
+    
+    Args:
+        transcript: The audio transcript to analyze
+        context: Optional previous context (30-second rolling window)
     """
-    Analyze transcript for scam indicators using Backboard + Gemini.
-    """
-    if not BACKBOARD_API_KEY:
-        logger.error("Backboard API key not configured in config.py")
+    if not GEMINI_API_KEY:
+        logger.error("Gemini API key not configured")
         return get_default_analysis()
     
     try:
-        # Construct the full context
-        history = f"Previous Context: {context}\n" if context else ""
-        full_prompt = f"{history}New Audio Segment to Analyze: {transcript}"
-
+        # Build the prompt with context
+        system_prompt = (
+            "Analyze for scams. Look for: Gift Cards, Crypto, OTP, Money Transfer, Urgent, Threats. "
+            "Respond: {\"risk_level\": \"low|medium|high\", \"scam_type\": \"string\", \"reasons\": [], \"confidence\": 0.0-1.0}"
+        )
+        
+        # Reduce context window to last 2 chunks only (instead of 30 seconds)
+        context_truncated = context.split('\n')[-2:] if context else []
+        context_short = '\n'.join(context_truncated) if context_truncated else "No context"
+        
+        message_text = f"Context: {context_short}\n\nAnalyze: {transcript}"
+        
         payload = {
-            "model": "google/gemini-1.5-flash", # Routing to Gemini via Backboard
-            "messages": [
+            "contents": [
                 {
-                    "role": "system", 
-                    "content": (
-                        "You are an elite fraud detection AI. Analyze the transcript for social engineering. "
-                        "If you detect requests for 'Gift Cards', 'Crypto', 'OTP', or 'Immediate Action' "
-                        "under threat, you MUST classify as HIGH risk. "
-                        "Respond ONLY in valid JSON with keys: risk_level (low|medium|high), "
-                        "scam_type (string), reasons (list), and confidence (0.0-1.0)."
-                    )
-                },
-                {"role": "user", "content": full_prompt}
+                    "role": "user",
+                    "parts": [{"text": system_prompt + "\n\n" + message_text}]
+                }
             ],
-            "response_format": { "type": "json_object" },
-            "temperature": 0.1
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 500
+            }
         }
-
-        headers = {
-            "Authorization": f"Bearer {BACKBOARD_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
+        
+        headers = {"Content-Type": "application/json"}
+        url = f"{GEMINI_URL}?key={GEMINI_API_KEY}"
+        
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(BACKBOARD_URL, headers=headers, json=payload)
+            response = await client.post(url, json=payload, headers=headers)
         
         if response.status_code == 200:
             result = response.json()
-            # Backboard/OpenAI format: choices[0].message.content
-            content = result['choices'][0]['message']['content']
+            content = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
             
-            analysis = json.loads(content)
-            
-            # Simple validation/normalization
-            analysis["risk_level"] = analysis.get("risk_level", "low").lower()
-            analysis["scam_type"] = analysis.get("scam_type", "General Conversation")
-            analysis["reasons"] = analysis.get("reasons", [])
-            analysis["confidence"] = float(analysis.get("confidence", 0.0))
-            
-            return analysis
+            # Extract JSON from response
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                analysis = json.loads(json_match.group())
+                # Validation/normalization
+                analysis["risk_level"] = analysis.get("risk_level", "low").lower()
+                analysis["scam_type"] = analysis.get("scam_type", None)
+                analysis["reasons"] = analysis.get("reasons", [])
+                analysis["confidence"] = float(analysis.get("confidence", 0.0))
+                return analysis
+            else:
+                logger.warning(f"Could not parse JSON from: {content}")
         else:
-            logger.error(f"Backboard Error {response.status_code}: {response.text}")
-            return get_default_analysis()
+            logger.error(f"Gemini API Error {response.status_code}: {response.text}")
             
     except Exception as e:
-        logger.error(f"LLM analysis error: {str(e)}")
-        return get_default_analysis()
+        logger.error(f"Analysis error: {str(e)}")
+    
+    return get_default_analysis()
+
 
 def get_default_analysis() -> Dict:
     return {
         "risk_level": "low",
-        "scam_type": "Connection Issue",
-        "reasons": ["Unable to reach AI analysis - check API keys"],
+        "scam_type": None,
+        "reasons": ["AI analysis temporarily unavailable (quota exceeded or API error)"],
         "confidence": 0.0
     }
