@@ -90,6 +90,7 @@
                         <span class="recording-indicator"></span> Stop Recording
                     </button>
                     <button id="resetBtn" class="btn-secondary">↻ Reset</button>
+                    <button id="captchaBtn" class="btn-secondary">Detect AI using Captcha</button>
                 </div>
                 <div id="statusBox" class="status-box" style="margin-top: 15px; padding: 10px; border-radius: 8px; background: #f3f4f6;">
                     System ready...
@@ -117,16 +118,103 @@
     </div>
 
     <script>
-        const API_ENDPOINT = 'http://localhost:8000';
-        let mediaRecorder;
-        let audioChunks = [];
-        let isRecording = false;
-        let chunkId = 0;
+        // --- Captcha Detection Logic ---
+        const captchaBtn = document.getElementById('captchaBtn');
+        let captchaRetry = false;
 
-        const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const transcriptBox = document.getElementById('transcript');
-        const riskSection = document.getElementById('riskSection');
+        async function playAudio(src) {
+            return new Promise((resolve) => {
+                const audio = new Audio(src);
+                audio.onended = resolve;
+                audio.play();
+            });
+        }
+
+        async function recordAudio(durationMs = 10000) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            let chunks = [];
+            return new Promise((resolve) => {
+                recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'audio/webm' });
+                    resolve(blob);
+                };
+                recorder.start();
+                setTimeout(() => { recorder.stop(); stream.getTracks().forEach(t => t.stop()); }, durationMs);
+            });
+        }
+
+        async function sendCaptchaAudio(blob) {
+            const reader = new FileReader();
+            return new Promise((resolve, reject) => {
+                reader.onloadend = async () => {
+                    try {
+                        const base64 = reader.result.split(',')[1];
+                        const res = await fetch(`${API_ENDPOINT}/captcha-verify`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ audio_data: base64 })
+                        });
+                        const data = await res.json();
+                        resolve(data);
+                    } catch (e) { reject(e); }
+                };
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function showPopup(msg) {
+            alert(msg); // Simple popup, can be replaced with custom modal
+        }
+
+        async function runCaptchaFlow() {
+            captchaBtn.disabled = true;
+            updateStatus('Playing captcha audio...');
+            await playAudio(captchaAudioPath);
+            updateStatus('Recording your response for 10 seconds...');
+            const userAudio = await recordAudio(10000);
+            updateStatus('Analyzing response...');
+            const result = await sendCaptchaAudio(userAudio);
+            if (result.likely_human) {
+                showPopup('✅ Likely human');
+                updateStatus('Captcha passed: Likely human.');
+                captchaBtn.disabled = false;
+                captchaRetry = false;
+            } else {
+                if (!captchaRetry) {
+                    showPopup('❌ Not verified. Please try again.');
+                    updateStatus('Retrying captcha...');
+                    await playAudio(retryAudioPath);
+                    captchaRetry = true;
+                    await runCaptchaFlow();
+                } else {
+                    showPopup('Likely an AI bot');
+                    updateStatus('Captcha failed: Likely an AI bot.');
+                    captchaBtn.disabled = false;
+                    captchaRetry = false;
+                }
+            }
+        }
+
+        captchaBtn.onclick = () => {
+            captchaRetry = false;
+            runCaptchaFlow();
+        };
+    const API_ENDPOINT = 'http://localhost:8000';
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+    let chunkId = 0;
+
+    // Update audio file paths to match files in frontend directory
+    const captchaAudioPath = 'ElevenLabs_2026-02-15T04_49_50_sanjana_ivc_sp100_s50_sb75_se0_b_m2.mp3';
+    const retryAudioPath = 'retry.mp3';
+
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const transcriptBox = document.getElementById('transcript');
+    const riskSection = document.getElementById('riskSection');
 
         startBtn.onclick = async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
