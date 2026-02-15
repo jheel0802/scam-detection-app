@@ -281,6 +281,65 @@ async def get_context():
     }
 
 
+# --- AI CAPTCHA ENDPOINT ---
+from fastapi import Body
+from typing import Dict
+
+@app.post("/captcha-verify")
+async def captcha_verify(payload: Dict = Body(...)):
+    """
+    Accepts base64 audio, transcribes, sends to Gemini to check for human actions (e.g., [clapping], [tapping]).
+    Returns {likely_human: bool, transcript: str, details: str}
+    """
+    audio_data = payload.get("audio_data")
+    if not audio_data:
+        raise HTTPException(status_code=400, detail="Missing audio_data")
+
+    # 1. Transcribe audio
+    transcript = await transcribe_audio(audio_data)
+    if transcript is None:
+        return {"likely_human": False, "transcript": "", "details": "Transcription failed"}
+
+    # 2. Ask Gemini if transcript contains human actions
+    prompt = (
+        "You are an AI captcha verifier. The following is a transcript of a user's audio response. "
+        "If the transcript contains clear evidence of human actions such as [clapping], [tapping], [snapping], [knocking], or similar, respond with JSON: {\"likely_human\": true, \"reason\": \"what action was detected\"}. "
+        "If not, respond with {\"likely_human\": false, \"reason\": \"no human action detected\"}. "
+        "Transcript: " + transcript
+    )
+    from services.llm_analysis import analyze_transcript, get_default_analysis
+    # We'll use analyze_transcript but override the prompt for this special case
+    import httpx, json
+    from config import GEMINI_API_KEY
+    GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    payload_gemini = {
+        "contents": [
+            {"role": "user", "parts": [{"text": prompt}]}
+        ],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 200}
+    }
+    headers = {"Content-Type": "application/json"}
+    url = f"{GEMINI_URL}?key={GEMINI_API_KEY}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload_gemini, headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            content = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                verdict = json.loads(json_match.group())
+                return {
+                    "likely_human": verdict.get("likely_human", False),
+                    "transcript": transcript,
+                    "details": verdict.get("reason", "No reason returned")
+                }
+        return {"likely_human": False, "transcript": transcript, "details": "LLM error or unrecognized response"}
+    except Exception as e:
+        return {"likely_human": False, "transcript": transcript, "details": f"Exception: {str(e)}"}
+
+
 if __name__ == "__main__":
     import uvicorn
     from config import BACKEND_HOST, BACKEND_PORT
@@ -291,3 +350,4 @@ if __name__ == "__main__":
         port=BACKEND_PORT,
         log_level="info"
     )
+
