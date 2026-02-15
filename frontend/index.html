@@ -691,8 +691,7 @@
             captchaRetry = false;
             runCaptchaFlow();
         };
-    // const API_ENDPOINT = 'http://localhost:8000';
-    const API_ENDPOINT = 'https://bluff-busters-backend.onrender.com';
+    const API_ENDPOINT = 'http://localhost:8000';
     let mediaRecorder;
     let audioChunks = [];
     let isRecording = false;
@@ -825,7 +824,7 @@
             analysisCounter = 0;  // Reset counter
             
             // Fire off analysis without waiting
-            fetch(`${API_ENDPOINT}/api/analyze`, {
+            fetch(`${API_ENDPOINT}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ transcript: transData.transcript })
