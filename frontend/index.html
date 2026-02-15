@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Scam Call Detection</title>
+    <style>
+        /* RESTORING YOUR ORIGINAL PRO STYLING */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px; display: flex; align-items: center; justify-content: center;
+        }
+        .container {
+            max-width: 900px; width: 100%; background: white; border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 30px; text-align: center;
+        }
+        .content { padding: 30px; }
+        .section { margin-bottom: 30px; }
+        .section-title {
+            font-size: 18px; font-weight: 600; margin-bottom: 15px; color: #333;
+            display: flex; align-items: center;
+        }
+        .section-title::before {
+            content: ''; width: 4px; height: 24px; background: #667eea;
+            border-radius: 2px; margin-right: 10px;
+        }
+        .control-panel { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        button {
+            padding: 12px 24px; font-size: 14px; font-weight: 600; border: none;
+            border-radius: 8px; cursor: pointer; transition: all 0.3s ease;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-secondary { background: #e5e7eb; color: #333; }
+        .risk-indicator {
+            display: flex; align-items: center; gap: 15px; padding: 20px;
+            border-radius: 12px; background: #f9fafb; border: 2px solid #e5e7eb;
+        }
+        .risk-level {
+            font-size: 24px; font-weight: bold; min-width: 100px; padding: 20px;
+            border-radius: 8px; text-align: center; color: white; text-transform: uppercase;
+        }
+        .risk-level.low { background: #22c55e; }
+        .risk-level.medium { background: #f59e0b; }
+        .risk-level.high { background: #ef4444; }
+        .transcript-box {
+            background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+            padding: 15px; max-height: 300px; overflow-y: auto;
+            font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6;
+            color: #333; min-height: 100px;
+        }
+        .transcript-chunk {
+            margin-bottom: 10px; padding: 10px; background: white;
+            border-left: 3px solid #667eea; border-radius: 4px;
+        }
+        .reasons-list { list-style: none; margin-top: 10px; }
+        .reasons-list li {
+            padding: 8px 0; padding-left: 24px; position: relative; font-size: 14px; color: #555;
+        }
+        .reasons-list li::before {
+            content: '→'; position: absolute; left: 0; color: #667eea; font-weight: bold;
+        }
+        .confidence-bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-top: 10px; }
+        .confidence-fill { height: 100%; background: #667eea; transition: width 0.3s ease; }
+        .recording-indicator { width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: none; }
+        .recording-indicator.active { display: inline-block; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Real-Time Scam Call Detection</h1>
+            <p>Siren's Call: Verified by Backboard.io & ElevenLabs</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <div class="section-title">Controls</div>
+                <div class="control-panel">
+                    <button id="startBtn" class="btn-primary"><span>🔴</span> Start Call Monitoring</button>
+                    <button id="stopBtn" class="btn-danger" disabled>
+                        <span class="recording-indicator"></span> Stop Recording
+                    </button>
+                    <button id="resetBtn" class="btn-secondary">↻ Reset</button>
+                </div>
+                <div id="statusBox" class="status-box" style="margin-top: 15px; padding: 10px; border-radius: 8px; background: #f3f4f6;">
+                    System ready...
+                </div>
+            </div>
+
+            <div class="section" id="riskSection" style="display: none;">
+                <div class="section-title">Risk Assessment</div>
+                <div class="risk-indicator">
+                    <div id="riskLevel" class="risk-level low">LOW</div>
+                    <div class="risk-details">
+                        <h3>Current Risk: <span id="riskText">Low</span></h3>
+                        <p id="scamTypeContainer"><strong>Type:</strong> <span id="scamTypeText">None</span></p>
+                        <div class="confidence-bar"><div id="confidenceFill" class="confidence-fill" style="width: 0%"></div></div>
+                    </div>
+                </div>
+                <ul id="reasonsList" class="reasons-list"></ul>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Live Transcript</div>
+                <div id="transcript" class="transcript-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_ENDPOINT = 'http://localhost:8000';
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let chunkId = 0;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const transcriptBox = document.getElementById('transcript');
+        const riskSection = document.getElementById('riskSection');
+
+        startBtn.onclick = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            isRecording = true;
+            
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            document.querySelector('.recording-indicator').classList.add('active');
+            updateStatus("🎙️ Listening to conversation...", "info");
+
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+            const processLoop = setInterval(async () => {
+                if (!isRecording) { clearInterval(processLoop); return; }
+                
+                mediaRecorder.stop();
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioChunks = [];
+                
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const base64 = reader.result.split(',')[1];
+                    sendToBackend(base64);
+                };
+                mediaRecorder.start();
+            }, 4000);
+
+            mediaRecorder.start();
+        };
+
+        async function sendToBackend(base64) {
+            try {
+                chunkId++;
+                const res = await fetch(`${API_ENDPOINT}/process-and-analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio_data: base64, chunk_id: chunkId })
+                });
+                const data = await res.json();
+                
+                // Update Transcript
+                const chunkDiv = document.createElement('div');
+                chunkDiv.className = 'transcript-chunk';
+                chunkDiv.innerHTML = `<strong>[Chunk ${chunkId}]:</strong> ${data.transcript}`;
+                transcriptBox.appendChild(chunkDiv);
+                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+
+                // Update Risk
+                riskSection.style.display = 'block';
+                document.getElementById('riskLevel').className = `risk-level ${data.risk_level}`;
+                document.getElementById('riskLevel').innerText = data.risk_level;
+                document.getElementById('scamTypeText').innerText = data.scam_type || "General Conversation";
+                
+                const list = document.getElementById('reasonsList');
+                list.innerHTML = '';
+                data.reasons.forEach(r => {
+                    const li = document.createElement('li');
+                    li.innerText = r;
+                    list.appendChild(li);
+                });
+            } catch (e) { console.error("Error processing:", e); }
+        }
+
+        function updateStatus(msg) { document.getElementById('statusBox').innerText = msg; }
+        
+        stopBtn.onclick = () => {
+            isRecording = false;
+            mediaRecorder.stop();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            document.querySelector('.recording-indicator').classList.remove('active');
+            updateStatus("⏹️ Monitoring paused.");
+        };
+    </script>
+</body>
+</html>
