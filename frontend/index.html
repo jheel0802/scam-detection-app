@@ -825,7 +825,7 @@
             analysisCounter = 0;  // Reset counter
             
             // Fire off analysis without waiting
-            fetch(`${API_ENDPOINT}/analyze`, {
+            fetch(`${API_ENDPOINT}/api/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ transcript: transData.transcript })
