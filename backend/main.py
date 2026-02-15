@@ -97,6 +97,14 @@ async def health_check():
     }
 
 
+@app.get("/")
+async def root():
+    """
+    Root endpoint providing a welcome message.
+    """
+    return {"message": "Welcome to the Bluff Busters Scam Detection"}
+
+
 @app.post("/process-audio")
 async def process_audio(
     request: TranscriptRequest
