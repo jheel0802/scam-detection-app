@@ -206,6 +206,7 @@
     let audioChunks = [];
     let isRecording = false;
     let chunkId = 0;
+    let sessionId = null;
 
     // Update audio file paths to match files in frontend directory
     const captchaAudioPath = 'ElevenLabs_2026-02-15T04_49_50_sanjana_ivc_sp100_s50_sb75_se0_b_m2.mp3';
@@ -220,6 +221,8 @@
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             isRecording = true;
+            sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            chunkId = 0;
             
             startBtn.disabled = true;
             stopBtn.disabled = false;
@@ -253,7 +256,7 @@
                 const res = await fetch(`${API_ENDPOINT}/process-and-analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio_data: base64, chunk_id: chunkId })
+                    body: JSON.stringify({ audio_data: base64, chunk_id: chunkId, session_id: sessionId })
                 });
                 const data = await res.json();
                 
@@ -290,6 +293,11 @@
             document.querySelector('.recording-indicator').classList.remove('active');
             updateStatus("⏹️ Monitoring paused.");
         };
+        
+        // Reset button if it exists
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) resetBtn.onclick = () => { sessionId = null; fetch(`${API_ENDPOINT}/reset`, {method: 'POST'}); };
+        
     </script>
 </body>
 </html>

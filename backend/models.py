@@ -9,6 +9,7 @@ class TranscriptRequest(BaseModel):
     """Request model for audio processing."""
     audio_data: str  # Base64 encoded audio data
     chunk_id: int  # Chunk identifier for tracking
+    session_id: Optional[str] = None  # Session identifier for conversation tracking
 
 
 class TranscriptResponse(BaseModel):

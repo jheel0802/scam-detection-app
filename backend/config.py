@@ -6,6 +6,7 @@ load_dotenv()
 # API Keys
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY", "")
 
 # Server configuration
 BACKEND_PORT = int(os.getenv("BACKEND_PORT", 8000))
