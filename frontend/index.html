@@ -72,6 +72,58 @@
         .recording-indicator { width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: none; }
         .recording-indicator.active { display: inline-block; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .toggle-tabs {
+            display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb;
+        }
+        .toggle-btn {
+            padding: 12px 20px; background: none; border: none; border-bottom: 3px solid transparent;
+            cursor: pointer; font-size: 14px; font-weight: 600; color: #999;
+            transition: all 0.3s ease; position: relative;
+        }
+        .toggle-btn.active {
+            color: #667eea; border-bottom-color: #667eea;
+        }
+        .toggle-btn.high-alert {
+            color: #ef4444; border-bottom-color: #ef4444;
+        }
+        .toggle-btn.high-alert::after {
+            content: ''; width: 8px; height: 8px; background: #ef4444; border-radius: 50%;
+            position: absolute; top: 5px; right: 0; animation: pulse 1.5s infinite;
+        }
+        .view-container { display: none; }
+        .view-container.active { display: block; }
+        .alerts-box {
+            background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+            padding: 15px; max-height: 300px; overflow-y: auto; min-height: 100px;
+        }
+        .alert-item {
+            background: white; border-left: 4px solid #ef4444; border-radius: 4px;
+            padding: 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.5;
+        }
+        .alert-header {
+            font-weight: 700; color: #ef4444; margin-bottom: 6px; display: flex; justify-content: space-between;
+        }
+        .alert-timestamp {
+            font-size: 12px; color: #999;
+        }
+        .alert-type {
+            margin: 4px 0; color: #333;
+        }
+        .alert-confidence {
+            margin: 4px 0; color: #667eea; font-weight: 600;
+        }
+        .alert-reasons {
+            margin-top: 8px; list-style: none; padding-left: 0; font-size: 12px; color: #555;
+        }
+        .alert-reasons li {
+            padding: 2px 0; padding-left: 16px; position: relative;
+        }
+        .alert-reasons li::before {
+            content: '•'; position: absolute; left: 4px; color: #ef4444;
+        }
+        .empty-message {
+            text-align: center; color: #999; padding: 20px; font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -110,8 +162,20 @@
             </div>
 
             <div class="section">
-                <div class="section-title">Live Transcript</div>
-                <div id="transcript" class="transcript-box"></div>
+                <div class="toggle-tabs">
+                    <button class="toggle-btn active" data-view="transcript">📋 Transcript</button>
+                    <button class="toggle-btn" data-view="alerts">🚨 Alerts</button>
+                </div>
+                
+                <div id="transcriptView" class="view-container active">
+                    <div id="transcript" class="transcript-box"></div>
+                </div>
+                
+                <div id="alertsView" class="view-container">
+                    <div id="alertsBox" class="alerts-box">
+                        <div class="empty-message">No high-risk alerts detected yet</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -122,77 +186,267 @@
         let audioChunks = [];
         let isRecording = false;
         let chunkId = 0;
+        let analysisCounter = 0;  // Only analyze every 2 chunks
 
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const transcriptBox = document.getElementById('transcript');
         const riskSection = document.getElementById('riskSection');
+        
+        // Alert tracking
+        let alerts = [];
+        let startTime = null;
+
+        // Toggle tabs functionality
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.getAttribute('data-view');
+                
+                // Update active tab
+                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Show/hide views
+                document.getElementById('transcriptView').classList.remove('active');
+                document.getElementById('alertsView').classList.remove('active');
+                document.getElementById(view + 'View').classList.add('active');
+            });
+        });
 
         startBtn.onclick = async () => {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            isRecording = true;
-            
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            document.querySelector('.recording-indicator').classList.add('active');
-            updateStatus("🎙️ Listening to conversation...", "info");
-
-            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-
-            const processLoop = setInterval(async () => {
-                if (!isRecording) { clearInterval(processLoop); return; }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isRecording = true;
+                startTime = Date.now();  // Start timer for alert timestamps
                 
-                mediaRecorder.stop();
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                audioChunks = [];
-                
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    const base64 = reader.result.split(',')[1];
-                    sendToBackend(base64);
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                document.querySelector('.recording-indicator').classList.add('active');
+                updateStatus("🎙️ Listening to conversation...");
+
+                // Continuous 4-second recording loop
+                const startNextChunk = () => {
+                    if (!isRecording) {
+                        stream.getTracks().forEach(t => t.stop());
+                        return;
+                    }
+                    
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (e) => { 
+                        if (e.data.size > 0) audioChunks.push(e.data); 
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        if (audioChunks.length > 0) {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            
+                            if (audioBlob.size >= 2000) {
+                                const reader = new FileReader();
+                                reader.readAsDataURL(audioBlob);
+                                reader.onloadend = () => {
+                                    const base64 = reader.result.split(',')[1];
+                                    sendToBackend(base64);
+                                };
+                            }
+                        }
+                        
+                        // Start next chunk after a small delay
+                        setTimeout(startNextChunk, 100);
+                    };
+                    
+                    mediaRecorder.start();
+                    
+                    // Stop recording after exactly 4 seconds
+                    setTimeout(() => {
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                    }, 4000);
                 };
-                mediaRecorder.start();
-            }, 4000);
-
-            mediaRecorder.start();
+                
+                // Start the first chunk
+                startNextChunk();
+                
+            } catch (e) {
+                console.error("Microphone access error:", e);
+                updateStatus("❌ Microphone access denied");
+            }
         };
 
         async function sendToBackend(base64) {
-            try {
-                chunkId++;
-                const res = await fetch(`${API_ENDPOINT}/process-and-analyze`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio_data: base64, chunk_id: chunkId })
-                });
-                const data = await res.json();
-                
-                // Update Transcript
-                const chunkDiv = document.createElement('div');
-                chunkDiv.className = 'transcript-chunk';
-                chunkDiv.innerHTML = `<strong>[Chunk ${chunkId}]:</strong> ${data.transcript}`;
-                transcriptBox.appendChild(chunkDiv);
-                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+    chunkId++;
+    const currentChunk = chunkId;
 
-                // Update Risk
-                riskSection.style.display = 'block';
-                document.getElementById('riskLevel').className = `risk-level ${data.risk_level}`;
-                document.getElementById('riskLevel').innerText = data.risk_level;
-                document.getElementById('scamTypeText').innerText = data.scam_type || "General Conversation";
-                
-                const list = document.getElementById('reasonsList');
-                list.innerHTML = '';
-                data.reasons.forEach(r => {
-                    const li = document.createElement('li');
-                    li.innerText = r;
-                    list.appendChild(li);
-                });
-            } catch (e) { console.error("Error processing:", e); }
+    try {
+        updateStatus("📤 Sending audio...");
+        
+        // --- STAGE 1: Fast Transcription (AWAIT) ---
+        const transRes = await fetch(`${API_ENDPOINT}/process-audio`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio_data: base64, chunk_id: currentChunk })
+        });
+        
+        if (!transRes.ok) {
+            throw new Error(`Transcription failed: ${transRes.status}`);
+        }
+        
+        const transData = await transRes.json();
+        
+        // INSTANTLY show transcript as soon as we have it
+        if (transData.transcript) {
+            updateTranscriptUI(currentChunk, transData.transcript);
+            updateStatus("🎙️ Listening...");
+        } else {
+            updateStatus("⚠️ No speech detected");
+            return;
         }
 
-        function updateStatus(msg) { document.getElementById('statusBox').innerText = msg; }
+        // --- STAGE 2: Analyze in Background (every 2 chunks to save API usage) ---
+        analysisCounter++;
+        if (analysisCounter >= 2) {
+            analysisCounter = 0;  // Reset counter
+            
+            // Fire off analysis without waiting
+            fetch(`${API_ENDPOINT}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript: transData.transcript })
+            })
+            .then(analRes => {
+                if (!analRes.ok) throw new Error(`Analysis failed: ${analRes.status}`);
+                return analRes.json();
+            })
+            .then(analData => {
+                updateRiskUI(analData);
+            })
+            .catch(e => {
+                console.error("Analysis error:", e);
+            });
+        } else {
+            updateStatus("🎙️ Buffering for analysis...");
+        }
+
+    } catch (e) { 
+        console.error("Error:", e); 
+        updateStatus(`❌ Error: ${e.message}`);
+    }
+}
+
+function updateTranscriptUI(id, text) {
+    const chunkDiv = document.createElement('div');
+    chunkDiv.className = 'transcript-chunk';
+    chunkDiv.innerHTML = `<strong>[Chunk ${id}]:</strong> ${text}`;
+    transcriptBox.appendChild(chunkDiv);
+    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+}
+
+function updateRiskUI(data) {
+    riskSection.style.display = 'block';
+    const riskEl = document.getElementById('riskLevel');
+    riskEl.className = `risk-level ${data.risk_level}`;
+    riskEl.innerText = data.risk_level.toUpperCase();
+    
+    const scamTypeText = data.scam_type || "None detected";
+    document.getElementById('scamTypeText').innerText = scamTypeText;
+    
+    // Update risk text display
+    document.getElementById('riskText').innerText = data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1);
+    
+    // Update confidence bar
+    let confidence = data.confidence;
+    if (typeof confidence === 'string') {
+        confidence = parseFloat(confidence);
+    }
+    if (isNaN(confidence)) {
+        confidence = 0;
+    }
+    const confidencePercent = Math.min(100, Math.max(0, confidence * 100));
+    document.getElementById('confidenceFill').style.width = confidencePercent + '%';
+    
+    // Display reasons
+    const list = document.getElementById('reasonsList');
+    list.innerHTML = '';
+    if (data.reasons && data.reasons.length > 0) {
+        data.reasons.forEach(r => {
+            const li = document.createElement('li');
+            li.innerText = r;
+            list.appendChild(li);
+        });
+    } else {
+        const li = document.createElement('li');
+        li.innerText = 'No specific indicators detected';
+        list.appendChild(li);
+    }
+    
+    // Track HIGH risk alerts
+    if (data.risk_level === 'high') {
+        const timestamp = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        const alert = {
+            time: timestamp,
+            scamType: scamTypeText,
+            confidence: confidence,
+            reasons: data.reasons || []
+        };
+        alerts.push(alert);
+        
+        // Update alerts button to red and highlight
+        const alertsBtn = document.querySelector('[data-view="alerts"]');
+        alertsBtn.classList.add('high-alert');
+        
+        // Add to alerts list
+        addAlertToUI(alert);
+    }
+}
+
+function updateStatus(msg) { 
+    document.getElementById('statusBox').innerText = msg; 
+}
+
+function addAlertToUI(alert) {
+    const alertsBox = document.getElementById('alertsBox');
+    
+    // Clear empty message if present
+    const emptyMsg = alertsBox.querySelector('.empty-message');
+    if (emptyMsg) {
+        emptyMsg.remove();
+    }
+    
+    // Create alert item
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert-item';
+    
+    const timeStr = `${Math.floor(alert.time / 60)}:${(alert.time % 60).toString().padStart(2, '0')}`;
+    const confidencePercent = (alert.confidence * 100).toFixed(0);
+    
+    let alertHtml = `
+        <div class="alert-header">
+            <span>🚨 HIGH RISK ALERT</span>
+            <span class="alert-timestamp">[${timeStr}]</span>
+        </div>
+        <div class="alert-type"><strong>Type:</strong> ${alert.scamType}</div>
+        <div class="alert-confidence"><strong>Confidence:</strong> ${confidencePercent}%</div>
+    `;
+    
+    if (alert.reasons && alert.reasons.length > 0) {
+        alertHtml += '<ul class="alert-reasons">';
+        alert.reasons.forEach(reason => {
+            alertHtml += `<li>${reason}</li>`;
+        });
+        alertHtml += '</ul>';
+    }
+    
+    alertDiv.innerHTML = alertHtml;
+    
+    // Add to top of alerts box
+    alertsBox.insertBefore(alertDiv, alertsBox.firstChild);
+}
+        
+function updateStatus(msg) { 
+    document.getElementById('statusBox').innerText = msg; 
+}
         
         stopBtn.onclick = () => {
             isRecording = false;
@@ -200,7 +454,37 @@
             startBtn.disabled = false;
             stopBtn.disabled = true;
             document.querySelector('.recording-indicator').classList.remove('active');
-            updateStatus("⏹️ Monitoring paused.");
+            updateStatus("⏹️ Monitoring paused. Click 'Reset' to start a new conversation.");
+        };
+        
+        const resetBtn = document.getElementById('resetBtn');
+        resetBtn.onclick = async () => {
+            // Clear UI
+            transcriptBox.innerHTML = '';
+            riskSection.style.display = 'none';
+            chunkId = 0;
+            audioChunks = [];
+            alerts = [];
+            startTime = null;
+            updateStatus("System ready...");
+            
+            // Reset alerts UI
+            document.querySelector('[data-view="alerts"]').classList.remove('high-alert');
+            const alertsBox = document.getElementById('alertsBox');
+            alertsBox.innerHTML = '<div class="empty-message">No high-risk alerts detected yet</div>';
+            
+            // Switch back to transcript view
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('[data-view="transcript"]').classList.add('active');
+            document.getElementById('transcriptView').classList.add('active');
+            document.getElementById('alertsView').classList.remove('active');
+            
+            // Reset backend context
+            try {
+                await fetch(`${API_ENDPOINT}/reset`, { method: 'POST' });
+            } catch (e) {
+                console.error("Reset failed:", e);
+            }
         };
     </script>
 </body>
