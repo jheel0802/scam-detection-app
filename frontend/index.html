@@ -170,8 +170,13 @@
 
         async function runCaptchaFlow() {
             captchaBtn.disabled = true;
-            updateStatus('Playing captcha audio...');
-            await playAudio(captchaAudioPath);
+            if (!captchaRetry) {
+                updateStatus('Playing captcha audio...');
+                await playAudio(captchaAudioPath);
+            } else {
+                updateStatus('Retrying captcha...');
+                await playAudio(retryAudioPath);
+            }
             updateStatus('Recording your response for 10 seconds...');
             const userAudio = await recordAudio(10000);
             updateStatus('Analyzing response...');
@@ -183,9 +188,7 @@
                 captchaRetry = false;
             } else {
                 if (!captchaRetry) {
-                    showPopup('❌ Not verified. Please try again.');
-                    updateStatus('Retrying captcha...');
-                    await playAudio(retryAudioPath);
+                    // No popup, just start retry flow
                     captchaRetry = true;
                     await runCaptchaFlow();
                 } else {
