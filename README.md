@@ -1,8 +1,8 @@
-# 🎙️ Real-Time Scam Call Detection
+# Real-Time Scam Call Detection
 
 A full-stack web application that analyzes phone calls in real-time to detect scam indicators, using browser microphone capture, speech-to-text with ElevenLabs, and LLM analysis with Google Gemini.
 
-## 📋 Overview
+## Overview
 
 This application provides real-time detection of common scam patterns in phone conversations:
 
@@ -37,17 +37,17 @@ This application provides real-time detection of common scam patterns in phone c
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Backend**: Python 3.8+ with FastAPI
-- **Frontend**: HTML5 + vanilla JavaScript (no dependencies)
+- **Frontend**: HTML5 + JavaScript
 - **Audio APIs**: 
   - Web Audio API (browser microphone)
   - ElevenLabs Speech-to-Text API
-  - Google Gemini API (via Backboard)
+  - Google Gemini API
 - **Async**: Python asyncio for non-blocking processing
 
-## 📦 Prerequisites
+## Prerequisites
 
 - Python 3.8 or higher
 - Modern web browser with microphone support
@@ -55,7 +55,7 @@ This application provides real-time detection of common scam patterns in phone c
   - [ElevenLabs API Key](https://elevenlabs.io/sign-up)
   - [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Setup Backend
 
@@ -107,13 +107,12 @@ cp .env.example .env
 python main.py
 
 # You should see:
-# 🚀 Starting Scam Detection API
+# Starting Scam Detection API
 # Uvicorn running on http://0.0.0.0:8000
 ```
 
 The backend will be available at `http://localhost:8000`
 
-Health check: http://localhost:8000/health
 
 ### 3. Open Frontend
 
@@ -137,7 +136,7 @@ python3 -m http.server 3000 --directory frontend
 5. Click **"Stop Recording"** to end the call
 6. Click **"Reset"** to clear and start a new call
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### POST `/process-audio`
 Transcribe an audio chunk.
@@ -219,18 +218,6 @@ Reset the conversation context (start new call).
 }
 ```
 
-### GET `/health`
-Health check endpoint.
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "service": "scam-detection-api",
-  "context_items": 5
-}
-```
-
 ### GET `/context`
 Get current context (for debugging).
 
@@ -243,7 +230,7 @@ Get current context (for debugging).
 }
 ```
 
-## 🎵 How It Works
+## How It Works
 
 ### Real-Time Audio Processing
 
@@ -278,7 +265,7 @@ Get current context (for debugging).
    - List of detected indicators
    - Confidence score
 
-## 🛡️ Scam Detection Features
+## Scam Detection Features
 
 The system identifies:
 
@@ -290,7 +277,7 @@ The system identifies:
 - **Job Scams**: Work-from-home recruitment fraud
 - **Phishing**: Credential harvesting
 
-## 🧪 Testing
+## Testing
 
 ### Test Cases
 
@@ -306,20 +293,8 @@ The system identifies:
    - Say: "Act now, your account will be closed immediately if you don't verify."
    - Should detect urgency and multi-factor triggers
 
-### Simulate Without Speaking
 
-You can also test by sending raw transcripts to the `/analyze` endpoint:
-
-```bash
-# From terminal:
-curl -X POST http://localhost:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"transcript": "Verify your credit card details now or your account will be suspended"}'
-
-# Expected: HIGH risk, reasons about urgency and financial info request
-```
-
-## 📝 Project Structure
+## Project Structure
 
 ```
 scam-detection-app/
@@ -338,7 +313,7 @@ scam-detection-app/
     └── index.html                   # Single-page app (HTML + JS)
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Backend Environment Variables
 
@@ -346,8 +321,8 @@ Edit `backend/.env`:
 
 ```ini
 # API Keys
-ELEVENLABS_API_KEY=sk_xxx
-GEMINI_API_KEY=AIza_xxx
+ELEVENLABS_API_KEY=xxx
+GEMINI_API_KEY=xxx
 
 # Server
 BACKEND_PORT=8000
@@ -365,120 +340,16 @@ const CHUNK_DURATION_MS = 4000;                // Audio chunk duration
 const SAMPLE_RATE = 16000;                     // Audio sample rate
 ```
 
-## 🐛 Troubleshooting
-
-### Backend won't start
-
-```bash
-# Check Python version
-python --version  # Should be 3.8+
-
-# Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
-
-# Check if port 8000 is in use
-lsof -i :8000
-```
-
-### "Backend not available" error
-
-- Ensure backend is running: `python main.py`
-- Check backend logs for errors
-- Verify port 8000 is accessible
-- Check CORS settings in `config.py`
-
-### Microphone not working
-
-- Check browser permissions (Settings → Privacy)
-- Use HTTPS in production (microphone requires secure context)
-- Try a different browser
-- Check browser console for errors (F12)
-
-### "API Key not configured"
-
-- Verify `.env` file exists in backend directory
-- Check API keys are correctly pasted
-- Restart backend after changing `.env`
-- Run `python config.py` to validate keys
-
-### ElevenLabs API errors
-
-- Check API key is valid: https://elevenlabs.io/app/settings/api-keys
-- Verify API quota isn't exceeded
-- Check internet connection
-
-### Gemini API errors
-
-- Get fresh API key from https://aistudio.google.com/app/apikey
-- Ensure API is enabled in Google Cloud Console
-- Check request rate limits
-
-## 🚀 Deployment
-
-### Production Checklist
-
-- [ ] Use environment variables for all secrets
-- [ ] Set FRONTEND_URL to production domain
-- [ ] Enable HTTPS (microphone requires secure context)
-- [ ] Configure CORS properly for production domain
-- [ ] Increase API rate limits and quotas
-- [ ] Add request logging and monitoring
-- [ ] Use production-grade server (e.g., Gunicorn)
-- [ ] Add database for transcript history
-- [ ] Implement user authentication
-
-### Deploy Backend (Example: AWS EC2)
-
-```bash
-# Install dependencies
-pip install gunicorn
-gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
-
-# Or use Docker
-docker build -t scam-detector .
-docker run -e ELEVENLABS_API_KEY=xxx -e GEMINI_API_KEY=xxx -p 8000:8000 scam-detector
-```
-
-### Deploy Frontend
-
-- Static HTML, CSS, JS - deploy to any static host
-- Vercel, Netlify, GitHub Pages, AWS S3 + CloudFront, etc.
-- Update `API_ENDPOINT` in `index.html` to point to backend
-
-## 📊 Performance Metrics
-
+## Performance Metrics
 - **Latency**: ~2-3 seconds per chunk (including transcription and analysis)
-- **Throughput**: Multiple concurrent users
 - **Accuracy**: Depends on Gemini model and prompt quality
 - **Storage**: Transcripts kept in memory (30-second window)
 
-## 🔐 Security & Privacy
-
-- Audio data is only sent to official APIs (ElevenLabs, Google)
-- No data is stored locally (except conversation context)
-- HTTPS recommended for production
-- API keys should never be exposed in frontend code
-- Consider implementing user authentication
-- Add rate limiting for production use
-
-## 📚 API Documentation
-
-Full API documentation available at: `http://localhost:8000/docs` (Swagger UI)
-Alternative docs at: `http://localhost:8000/redoc` (ReDoc)
-
-## 🎓 Learning Resources
-
-- **FastAPI**: https://fastapi.tiangolo.com/
-- **Web Audio API**: https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API
-- **ElevenLabs**: https://elevenlabs.io/docs
-- **Google Gemini**: https://ai.google.dev/
-- **Async/await**: https://python.readthedocs.io/en/latest/library/asyncio.html
-
-## 📄 License
+## License
 
 This project is provided as-is for educational and research purposes.
 
-## 🤝 Contributing
+## Contributing
 
 Feel free to:
 - Report bugs and issues
@@ -487,7 +358,7 @@ Feel free to:
 - Improve UI/UX
 - Add more languages
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 This tool is designed to help identify potential scam patterns but should not be relied upon as the sole indicator of fraudulent activity. Always:
 
@@ -499,10 +370,9 @@ This tool is designed to help identify potential scam patterns but should not be
 
 For official scam reporting:
 - **FTC**: https://reportfraud.ftc.gov/
-- **FBI**: https://www.fbi.gov/contact-us/its/white-collar-crime/internet-fraud-complaint-center
 - **IC3**: https://www.ic3.gov/
 
-## 📞 Support
+## Support
 
 For issues or questions:
 1. Check the troubleshooting section
