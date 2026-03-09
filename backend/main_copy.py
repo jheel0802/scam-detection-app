@@ -24,7 +24,7 @@ from models import (
 from services.transcription import transcribe_audio, validate_audio_format
 from services.llm_analysis import analyze_transcript, get_default_analysis
 from services.context_manager import get_context_manager
-from services.backboard_llm_analysis import initialize_backboard_analyzer
+from services.backboard_llm_analysis import initialize_backboard_analyzer, get_analyzer
 
 # Configure logging
 logging.basicConfig(
@@ -33,16 +33,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-"""FastAPI main application module."""
-
 # Configure CORS
-# In production we allow all origins to keep deployment simple.
-# If you want to lock this down later, replace ["*"] with a list
-# of explicit origins like FRONTEND_URL and localhost URLs.
-origins = ["*"]
+origins = [
+    FRONTEND_URL,
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+]
 
 # Global context manager (for transcripts)
 context_manager = get_context_manager()
+
+# Global session tracker - tracks active conversation threads
+active_sessions = {}  # session_id -> thread_id
 
 
 # Lifespan context manager for startup/shutdown events
@@ -58,6 +64,15 @@ async def lifespan(app: FastAPI):
     # Validate API keys are configured
     if not validate_config():
         logger.warning("⚠️  API keys not fully configured. Some features may not work.")
+    
+    # Initialize Backboard analyzer (RAG for scam patterns)
+    logger.info("🔄 Initializing Backboard Scam Analyzer (RAG)...")
+    backboard_initialized = await initialize_backboard_analyzer()
+    if backboard_initialized:
+        logger.info("✅ Backboard analyzer initialized successfully!")
+        logger.info("   Threads will be created per conversation")
+    else:
+        logger.warning("⚠️  Backboard analyzer initialization failed. Using Gemini fallback.")
     
     yield  # Application runs
     
@@ -158,10 +173,14 @@ async def process_audio(
 @app.post("/analyze")
 async def analyze(request: AnalysisRequest) -> AnalysisResponse:
     """
-    Analyze transcript for scam indicators.
+    Analyze transcript for scam indicators using Backboard RAG.
+    
+    If session_id is provided:
+    - First chunk of session: Creates new thread
+    - Subsequent chunks: Uses existing thread (maintains context)
     
     Args:
-        request: AnalysisRequest with transcript and optional context
+        request: AnalysisRequest with transcript, optional session_id and context
     
     Returns:
         AnalysisResponse with risk assessment
@@ -175,18 +194,61 @@ async def analyze(request: AnalysisRequest) -> AnalysisResponse:
                 detail="Transcript cannot be empty"
             )
         
-        # Use full context or provided context
-        context = request.context or context_manager.get_context()
+        analyzer = get_analyzer()
         
-        # Call Gemini LLM for analysis
-        analysis = await analyze_transcript(
-            request.transcript,
-            context if context != request.transcript else None
-        )
+        # Determine if this is a new conversation or continuation
+        session_id = request.session_id if hasattr(request, 'session_id') else None
         
-        if analysis is None:
-            # Return default safe analysis if API fails
-            analysis = get_default_analysis()
+        if session_id:
+            # Check if we already have a thread for this session
+            if session_id not in active_sessions:
+                # NEW CONVERSATION - Create new thread
+                logger.info(f"🎯 New session {session_id} - Creating new thread")
+                thread_id = await analyzer.create_thread_for_chunk()
+                if thread_id:
+                    active_sessions[session_id] = thread_id
+                    logger.info(f"✅ Thread created for session {session_id}: {thread_id}")
+                else:
+                    logger.error(f"Failed to create thread for session {session_id}")
+                    raise HTTPException(status_code=500, detail="Failed to create conversation thread")
+            else:
+                # CONTINUATION - Use existing thread
+                thread_id = active_sessions[session_id]
+                logger.info(f"📍 Continuing session {session_id} with thread {thread_id}")
+        else:
+            # No session tracking - use current thread
+            thread_id = analyzer.get_current_thread()
+            if not thread_id:
+                logger.warning("No session ID provided and no active thread - creating new one")
+                thread_id = await analyzer.create_thread_for_chunk()
+        
+        # Send message to thread and get analysis
+        response = await analyzer.send_message_to_thread(thread_id, request.transcript)
+        
+        if response is None:
+            logger.warning("Failed to get response from Backboard, using Gemini fallback")
+            # Fallback to Gemini
+            context = request.context or context_manager.get_context()
+            analysis = await analyze_transcript(
+                request.transcript,
+                context if context != request.transcript else None
+            )
+            if analysis is None:
+                analysis = get_default_analysis()
+        else:
+            # Parse response from Backboard
+            import json
+            try:
+                analysis = json.loads(response)
+                print(analysis)
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse Backboard response as JSON, parsing text: {response[:100]}")
+                analysis = {
+                    "risk_level": "unknown",
+                    "scam_type": "Unable to parse response",
+                    "reasons": [response],
+                    "confidence": 0.0
+                }
         
         logger.info(f"Analysis result: {analysis['risk_level']} risk")
         
@@ -213,11 +275,15 @@ async def process_and_analyze(
     request: TranscriptRequest
 ) -> ScamDetectionResult:
     """
-    Combined endpoint: process audio and analyze in one request.
-    Combines transcription and analysis for real-time detection.
+    Combined endpoint: transcribe audio and analyze using Backboard RAG.
+    
+    Thread management:
+    - First chunk of call: Creates new thread
+    - Subsequent chunks: Uses same thread (maintains conversation context)
+    - Each chunk_id is tracked to identify conversation flow
     
     Args:
-        request: TranscriptRequest with audio data
+        request: TranscriptRequest with audio data and chunk_id
     
     Returns:
         ScamDetectionResult with transcript and analysis
@@ -233,15 +299,62 @@ async def process_and_analyze(
         if transcript is None:
             raise HTTPException(status_code=503, detail="Transcription failed")
         
-        # Add to context
+        logger.info(f"Chunk {request.chunk_id} transcribed: {transcript[:50]}...")
+        
+        # Step 2: Determine if new conversation or continuation
+        # Using session_id and chunk_id to detect conversation flow
+        
+        analyzer = get_analyzer()
+        session_id = request.session_id
+        
+        if session_id and session_id not in active_sessions:
+            # NEW CONVERSATION - Create new thread
+            logger.info(f"🎯 New session {session_id} - Creating new thread")
+            thread_id = await analyzer.create_thread_for_chunk()
+            if thread_id:
+                active_sessions[session_id] = thread_id
+                logger.info(f"✅ Thread created for session {session_id}")
+            else:
+                raise HTTPException(status_code=500, detail="Failed to create thread")
+        elif session_id and session_id in active_sessions:
+            # CONTINUATION - Use existing thread
+            thread_id = active_sessions[session_id]
+            logger.info(f"📍 Continuing session {session_id}")
+        else:
+            # Fallback: use chunk_id
+            if request.chunk_id == 1:
+                thread_id = await analyzer.create_thread_for_chunk()
+                if thread_id:
+                    active_sessions['default'] = thread_id  # Store with 'default' key
+                logger.info("🎯 New call (chunk_id=1) - Creating thread")
+            else:
+                thread_id = active_sessions.get('default') or analyzer.get_current_thread()
+                logger.info(f"📍 Continuing (chunk_id={request.chunk_id})")
+        
+        # Add to context manager (for fallback analysis)
         context_manager.add_transcript(transcript)
         
-        # Step 2: Analyze for scams
-        context = context_manager.get_context()
-        analysis = await analyze_transcript(transcript, context)
+        # Step 3: Analyze for scams using Backboard thread
+        response = await analyzer.send_message_to_thread(thread_id, transcript)
         
-        if analysis is None:
-            analysis = get_default_analysis()
+        if response is None:
+            logger.warning("Failed to get response from Backboard, falling back to Gemini")
+            # Fallback to Gemini if Backboard fails
+            context = context_manager.get_context()
+            analysis = await analyze_transcript(transcript, context)
+            if analysis is None:
+                analysis = get_default_analysis()
+        else:
+            # Parse response from Backboard
+            import json
+            try:
+                analysis = json.loads(response)
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse Backboard response, falling back to Gemini")
+                context = context_manager.get_context()
+                analysis = await analyze_transcript(transcript, context)
+                if analysis is None:
+                    analysis = get_default_analysis()
         
         logger.info(f"Complete analysis: {analysis['risk_level']} risk")
         
@@ -266,12 +379,11 @@ async def process_and_analyze(
 
 @app.post("/reset")
 async def reset_session():
-    """
-    Reset the transcript context (start a new call).
-    """
+    """Reset and clear active sessions."""
+    active_sessions.clear()
     context_manager.clear()
-    logger.info("Session reset - context cleared")
-    return {"status": "ok", "message": "Context reset for new call"}
+    logger.info("🔄 Session reset")
+    return {"status": "ok", "message": "Session reset"}
 
 
 @app.get("/context")

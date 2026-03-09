@@ -696,7 +696,11 @@
     let audioChunks = [];
     let isRecording = false;
     let chunkId = 0;
+backboard-integration-v2
+    let sessionId = null;
+
     let analysisCounter = 0;
+main
 
     // Update audio file paths to match files in frontend directory
     const captchaAudioPath = 'ElevenLabs_2026-02-15T04_49_50_sanjana_ivc_sp100_s50_sb75_se0_b_m2.mp3';
@@ -711,6 +715,19 @@
         let alerts = [];
         let startTime = null;
 
+ backboard-integration-v2
+        startBtn.onclick = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            isRecording = true;
+            sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            chunkId = 0;
+            
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            document.querySelector('.recording-indicator').classList.add('active');
+            updateStatus("🎙️ Listening to conversation...", "info");
+=======
         // Toggle tabs functionality
         document.querySelectorAll('.toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -726,6 +743,7 @@
                 document.getElementById(view + 'View').classList.add('active');
             });
         });
+main
 
         startBtn.onclick = async () => {
             try {
@@ -790,8 +808,26 @@
         };
 
         async function sendToBackend(base64) {
+backboard-integration-v2
+            try {
+                chunkId++;
+                const res = await fetch(`${API_ENDPOINT}/process-and-analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio_data: base64, chunk_id: chunkId, session_id: sessionId })
+                });
+                const data = await res.json();
+                
+                // Update Transcript
+                const chunkDiv = document.createElement('div');
+                chunkDiv.className = 'transcript-chunk';
+                chunkDiv.innerHTML = `<strong>[Chunk ${chunkId}]:</strong> ${data.transcript}`;
+                transcriptBox.appendChild(chunkDiv);
+                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+
     chunkId++;
     const currentChunk = chunkId;
+main
 
     try {
         updateStatus("📤 Sending audio...");
@@ -992,6 +1028,11 @@ function updateStatus(msg) {
                 console.error("Reset failed:", e);
             }
         };
+        
+        // Reset button if it exists
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) resetBtn.onclick = () => { sessionId = null; fetch(`${API_ENDPOINT}/reset`, {method: 'POST'}); };
+        
     </script>
 </body>
 </html>
