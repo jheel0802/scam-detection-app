@@ -5,94 +5,569 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Scam Call Detection</title>
     <style>
-        /* RESTORING YOUR ORIGINAL PRO STYLING */
+        /* Dark Theme - Scam Detection Security UI */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255, 0, 100, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 150, 255, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
         }
         .container {
-            max-width: 900px; width: 100%; background: white; border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow: hidden;
+            max-width: 76vw;
+            width: 100%;
+            height: 76vh;
+            background: rgba(20, 20, 35, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 50px rgba(0, 150, 255, 0.2);
+            overflow: hidden;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+        }
+        /* Tablets and smaller screens */
+        @media (max-width: 1024px) {
+            .container {
+                max-width: 85vw;
+                height: 85vh;
+            }
+            .content {
+                max-height: calc(85vh - 180px) !important;
+            }
+        }
+        /* Mobile devices */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            .container {
+                max-width: 95vw;
+                height: 95vh;
+                border-radius: 15px;
+            }
+            .header {
+                padding: 25px !important;
+            }
+            .content {
+                padding: 25px !important;
+                max-height: calc(95vh - 150px) !important;
+            }
+            .header h1 {
+                font-size: 24px !important;
+            }
+            .header p {
+                font-size: 12px !important;
+            }
+            .section-title {
+                font-size: 15px !important;
+            }
+            button {
+                font-size: 12px !important;
+                padding: 10px 16px !important;
+            }
+            .control-panel {
+                flex-direction: column;
+                width: 100%;
+            }
+            .control-panel button {
+                width: 100%;
+            }
+            .risk-indicator {
+                flex-direction: column;
+                gap: 15px !important;
+            }
+            .risk-level {
+                min-width: 100% !important;
+                font-size: 22px !important;
+            }
+        }
+        /* Small phones */
+        @media (max-width: 480px) {
+            body {
+                padding: 2px;
+            }
+            .container {
+                max-width: 100vw;
+                height: 100vh;
+                border-radius: 10px;
+            }
+            .header {
+                padding: 20px !important;
+            }
+            .content {
+                padding: 15px !important;
+                max-height: calc(100vh - 130px) !important;
+            }
+            .header h1 {
+                font-size: 20px !important;
+            }
+            .header p {
+                font-size: 11px !important;
+            }
+            .section-title {
+                font-size: 14px !important;
+            }
+            button {
+                font-size: 11px !important;
+                padding: 8px 12px !important;
+            }
+            .risk-details h3 {
+                font-size: 14px !important;
+            }
+            .risk-details p {
+                font-size: 12px !important;
+            }
+            .transcript-box {
+                font-size: 11px !important;
+            }
+            .reasons-list li {
+                font-size: 12px !important;
+            }
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white; padding: 30px; text-align: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #00d4ff;
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(0, 150, 255, 0.4);
+            position: relative;
+            overflow: hidden;
         }
-        .content { padding: 30px; }
-        .section { margin-bottom: 30px; }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 150, 255, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 0 20px rgba(0, 150, 255, 0.5);
+        }
+        .header p {
+            color: #00b4d4;
+            font-size: 15px;
+            position: relative;
+            z-index: 1;
+            letter-spacing: 1px;
+        }
+        .content {
+            padding: 40px;
+            overflow-y: auto;
+            max-height: calc(76vh - 180px);
+        }
+        .content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .content::-webkit-scrollbar-track {
+            background: rgba(0, 150, 255, 0.1);
+            border-radius: 4px;
+        }
+        .content::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.5);
+            border-radius: 4px;
+        }
+        .content::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.8);
+        }
+        .section {
+            margin-bottom: 35px;
+        }
         .section-title {
-            font-size: 18px; font-weight: 600; margin-bottom: 15px; color: #333;
-            display: flex; align-items: center;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #00d4ff;
+            display: flex;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
         .section-title::before {
-            content: ''; width: 4px; height: 24px; background: #667eea;
-            border-radius: 2px; margin-right: 10px;
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #00d4ff, #ff0066);
+            border-radius: 2px;
+            margin-right: 12px;
+            box-shadow: 0 0 10px #00d4ff;
         }
-        .control-panel { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .control-panel {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
         button {
-            padding: 12px 24px; font-size: 14px; font-weight: 600; border: none;
-            border-radius: 8px; cursor: pointer; transition: all 0.3s ease;
-            display: flex; align-items: center; gap: 8px;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .btn-primary { background: #667eea; color: white; }
-        .btn-danger { background: #ef4444; color: white; }
-        .btn-secondary { background: #e5e7eb; color: #333; }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #0f0f1e;
+            font-weight: 700;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            border: 1px solid rgba(0, 212, 255, 0.8);
+        }
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #0f0f1e;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            border: 1px solid rgba(0, 212, 255, 0.8);
+            font-weight: 700;
+        }
+        .btn-danger:hover:not(:disabled) {
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: rgba(100, 100, 150, 0.3);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        .status-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.4);
+            color: #00d4ff;
+            font-weight: 500;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+        }
         .risk-indicator {
-            display: flex; align-items: center; gap: 15px; padding: 20px;
-            border-radius: 12px; background: #f9fafb; border: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 25px;
+            border-radius: 12px;
+            background: rgba(0, 150, 255, 0.08);
+            border: 2px solid rgba(0, 212, 255, 0.3);
         }
         .risk-level {
-            font-size: 24px; font-weight: bold; min-width: 100px; padding: 20px;
-            border-radius: 8px; text-align: center; color: white; text-transform: uppercase;
+            font-size: 26px;
+            font-weight: bold;
+            min-width: 120px;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 1px;
         }
-        .risk-level.low { background: #22c55e; }
-        .risk-level.medium { background: #f59e0b; }
-        .risk-level.high { background: #ef4444; }
+        .risk-level.low {
+            background: linear-gradient(135deg, #00d400 0%, #00a800 100%);
+            box-shadow: 0 0 20px rgba(0, 212, 0, 0.5);
+            border: 1px solid rgba(0, 212, 0, 0.8);
+        }
+        .risk-level.medium {
+            background: linear-gradient(135deg, #ffaa00 0%, #ff8800 100%);
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.5);
+            border: 1px solid rgba(255, 170, 0, 0.8);
+        }
+        .risk-level.high {
+            background: linear-gradient(135deg, #ff0066 0%, #cc0052 100%);
+            box-shadow: 0 0 20px rgba(255, 0, 102, 0.5);
+            border: 1px solid rgba(255, 0, 102, 0.8);
+        }
+        .risk-details h3 {
+            color: #00d4ff;
+            font-size: 17px;
+            margin-bottom: 8px;
+        }
+        .risk-details p {
+            color: #aaaacc;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+        .risk-details strong {
+            color: #00d4ff;
+        }
         .transcript-box {
-            background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
-            padding: 15px; max-height: 300px; overflow-y: auto;
-            font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6;
-            color: #333; min-height: 100px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 350px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #00d4ff;
+            min-height: 120px;
+        }
+        .transcript-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        .transcript-box::-webkit-scrollbar-track {
+            background: rgba(0, 150, 255, 0.1);
+            border-radius: 4px;
+        }
+        .transcript-box::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.5);
+            border-radius: 4px;
+        }
+        .transcript-box::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.8);
         }
         .transcript-chunk {
-            margin-bottom: 10px; padding: 10px; background: white;
-            border-left: 3px solid #667eea; border-radius: 4px;
+            margin-bottom: 10px;
+            padding: 12px;
+            background: rgba(20, 50, 80, 0.5);
+            border-left: 3px solid #00d4ff;
+            border-radius: 4px;
+            color: #aaaacc;
         }
-        .reasons-list { list-style: none; margin-top: 10px; }
+        .transcript-chunk strong {
+            color: #00d4ff;
+        }
+        .reasons-list {
+            list-style: none;
+            margin-top: 15px;
+        }
         .reasons-list li {
-            padding: 8px 0; padding-left: 24px; position: relative; font-size: 14px; color: #555;
+            padding: 10px 0;
+            padding-left: 24px;
+            position: relative;
+            font-size: 15px;
+            color: #aaaacc;
         }
         .reasons-list li::before {
-            content: '→'; position: absolute; left: 0; color: #667eea; font-weight: bold;
+            content: '⚠';
+            position: absolute;
+            left: 0;
+            color: #ff0066;
+            font-weight: bold;
         }
-        .confidence-bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-top: 10px; }
-        .confidence-fill { height: 100%; background: #667eea; transition: width 0.3s ease; }
-        .recording-indicator { width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: none; }
-        .recording-indicator.active { display: inline-block; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .confidence-bar {
+            height: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff 0%, #ff0066 100%);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        .recording-indicator {
+            width: 12px;
+            height: 12px;
+            background: #ff0066;
+            border-radius: 50%;
+            display: none;
+            box-shadow: 0 0 10px #ff0066;
+        }
+        .recording-indicator.active {
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 10px #ff0066; }
+            50% { opacity: 0.5; box-shadow: 0 0 20px #ff0066; }
+        }
+        .toggle-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .toggle-btn {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(100, 100, 150, 0.3);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toggle-btn:hover:not(.active) {
+            background: rgba(0, 212, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #0f0f1e;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+            border: 1px solid rgba(0, 212, 255, 0.8);
+            font-weight: 700;
+        }
+        .toggle-tabs-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+        }
+        .view-container {
+            display: none;
+            flex: 1;
+            min-width: 0;
+        }
+        .view-container.active {
+            display: block;
+        }
+        .alerts-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 350px;
+            overflow-y: auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #aaaacc;
+            min-height: 120px;
+        }
+        .alerts-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        .alerts-box::-webkit-scrollbar-track {
+            background: rgba(0, 150, 255, 0.1);
+            border-radius: 4px;
+        }
+        .alerts-box::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.5);
+            border-radius: 4px;
+        }
+        .alerts-box::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.8);
+        }
+        .alert-item {
+            margin-bottom: 12px;
+            padding: 12px;
+            background: rgba(20, 50, 80, 0.5);
+            border-left: 3px solid #ff0066;
+            border-radius: 4px;
+            color: #aaaacc;
+        }
+        .alert-item .alert-type {
+            color: #ff0066;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 12px;
+        }
+        .alert-item .alert-time {
+            color: #00d4ff;
+            font-size: 12px;
+            display: block;
+            margin-bottom: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .alert-item .alert-text {
+            color: #aaaacc;
+            font-size: 13px;
+        }
+        .empty-message {
+            color: #666688;
+            font-style: italic;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        @media (max-width: 768px) {
+            .toggle-tabs-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .view-container {
+                width: 100%;
+            }
+            .toggle-tabs {
+                flex-direction: column;
+            }
+            .toggle-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎙️ Real-Time Scam Call Detection</h1>
-            <p>Siren's Call: Verified by Backboard.io & ElevenLabs</p>
+            <h1>BLUFF BUSTERS</h1>
+            <p>Siren's Call: Backed by Backboard.io & ElevenLabs</p>
         </div>
 
         <div class="content">
             <div class="section">
                 <div class="section-title">Controls</div>
                 <div class="control-panel">
-                    <button id="startBtn" class="btn-primary"><span>🔴</span> Start Call Monitoring</button>
+                    <button id="startBtn" class="btn-primary"> Start Call Monitoring</button>
                     <button id="stopBtn" class="btn-danger" disabled>
                         <span class="recording-indicator"></span> Stop Recording
                     </button>
                     <button id="resetBtn" class="btn-secondary">↻ Reset</button>
                     <button id="captchaBtn" class="btn-secondary">Detect AI using Captcha</button>
                 </div>
-                <div id="statusBox" class="status-box" style="margin-top: 15px; padding: 10px; border-radius: 8px; background: #f3f4f6;">
+                <div id="statusBox" class="status-box">
                     System ready...
                 </div>
             </div>
@@ -111,8 +586,20 @@
             </div>
 
             <div class="section">
-                <div class="section-title">Live Transcript</div>
-                <div id="transcript" class="transcript-box"></div>
+                <div class="toggle-tabs">
+                    <button class="toggle-btn active" data-view="transcript">Transcript</button>
+                    <button class="toggle-btn" data-view="alerts">Alerts</button>
+                </div>
+                
+                <div id="transcriptView" class="view-container active">
+                    <div id="transcript" class="transcript-box"></div>
+                </div>
+                
+                <div id="alertsView" class="view-container">
+                    <div id="alertsBox" class="alerts-box">
+                        <div class="empty-message">No high-risk alerts detected yet</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -170,8 +657,13 @@
 
         async function runCaptchaFlow() {
             captchaBtn.disabled = true;
-            updateStatus('Playing captcha audio...');
-            await playAudio(captchaAudioPath);
+            if (!captchaRetry) {
+                updateStatus('Playing captcha audio...');
+                await playAudio(captchaAudioPath);
+            } else {
+                updateStatus('Retrying captcha...');
+                await playAudio(retryAudioPath);
+            }
             updateStatus('Recording your response for 10 seconds...');
             const userAudio = await recordAudio(10000);
             updateStatus('Analyzing response...');
@@ -183,9 +675,7 @@
                 captchaRetry = false;
             } else {
                 if (!captchaRetry) {
-                    showPopup('❌ Not verified. Please try again.');
-                    updateStatus('Retrying captcha...');
-                    await playAudio(retryAudioPath);
+                    // No popup, just start retry flow
                     captchaRetry = true;
                     await runCaptchaFlow();
                 } else {
@@ -201,12 +691,16 @@
             captchaRetry = false;
             runCaptchaFlow();
         };
-    const API_ENDPOINT = 'http://localhost:8000';
+    const API_ENDPOINT = 'https://scam-detection-app-1.onrender.com';
     let mediaRecorder;
     let audioChunks = [];
     let isRecording = false;
     let chunkId = 0;
+backboard-integration-v2
     let sessionId = null;
+
+    let analysisCounter = 0;
+main
 
     // Update audio file paths to match files in frontend directory
     const captchaAudioPath = 'ElevenLabs_2026-02-15T04_49_50_sanjana_ivc_sp100_s50_sb75_se0_b_m2.mp3';
@@ -216,7 +710,12 @@
     const stopBtn = document.getElementById('stopBtn');
     const transcriptBox = document.getElementById('transcript');
     const riskSection = document.getElementById('riskSection');
+        
+        // Alert tracking
+        let alerts = [];
+        let startTime = null;
 
+ backboard-integration-v2
         startBtn.onclick = async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
@@ -228,29 +727,88 @@
             stopBtn.disabled = false;
             document.querySelector('.recording-indicator').classList.add('active');
             updateStatus("🎙️ Listening to conversation...", "info");
-
-            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-
-            const processLoop = setInterval(async () => {
-                if (!isRecording) { clearInterval(processLoop); return; }
+=======
+        // Toggle tabs functionality
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.getAttribute('data-view');
                 
-                mediaRecorder.stop();
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                audioChunks = [];
+                // Update active tab
+                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
                 
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    const base64 = reader.result.split(',')[1];
-                    sendToBackend(base64);
+                // Show/hide views
+                document.getElementById('transcriptView').classList.remove('active');
+                document.getElementById('alertsView').classList.remove('active');
+                document.getElementById(view + 'View').classList.add('active');
+            });
+        });
+main
+
+        startBtn.onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isRecording = true;
+                startTime = Date.now();  // Start timer for alert timestamps
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                document.querySelector('.recording-indicator').classList.add('active');
+                updateStatus("🎙️ Listening to conversation...");
+
+                // Continuous 4-second recording loop
+                const startNextChunk = () => {
+                    if (!isRecording) {
+                        stream.getTracks().forEach(t => t.stop());
+                        return;
+                    }
+                    
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (e) => { 
+                        if (e.data.size > 0) audioChunks.push(e.data); 
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        if (audioChunks.length > 0) {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            
+                            if (audioBlob.size >= 2000) {
+                                const reader = new FileReader();
+                                reader.readAsDataURL(audioBlob);
+                                reader.onloadend = () => {
+                                    const base64 = reader.result.split(',')[1];
+                                    sendToBackend(base64);
+                                };
+                            }
+                        }
+                        
+                        // Start next chunk after a small delay
+                        setTimeout(startNextChunk, 100);
+                    };
+                    
+                    mediaRecorder.start();
+                    
+                    // Stop recording after exactly 4 seconds
+                    setTimeout(() => {
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                    }, 4000);
                 };
-                mediaRecorder.start();
-            }, 4000);
-
-            mediaRecorder.start();
+                
+                // Start the first chunk
+                startNextChunk();
+                
+            } catch (e) {
+                console.error("Microphone access error:", e);
+                updateStatus("❌ Microphone access denied");
+            }
         };
 
         async function sendToBackend(base64) {
+backboard-integration-v2
             try {
                 chunkId++;
                 const res = await fetch(`${API_ENDPOINT}/process-and-analyze`, {
@@ -267,23 +825,170 @@
                 transcriptBox.appendChild(chunkDiv);
                 transcriptBox.scrollTop = transcriptBox.scrollHeight;
 
-                // Update Risk
-                riskSection.style.display = 'block';
-                document.getElementById('riskLevel').className = `risk-level ${data.risk_level}`;
-                document.getElementById('riskLevel').innerText = data.risk_level;
-                document.getElementById('scamTypeText').innerText = data.scam_type || "General Conversation";
-                
-                const list = document.getElementById('reasonsList');
-                list.innerHTML = '';
-                data.reasons.forEach(r => {
-                    const li = document.createElement('li');
-                    li.innerText = r;
-                    list.appendChild(li);
-                });
-            } catch (e) { console.error("Error processing:", e); }
+    chunkId++;
+    const currentChunk = chunkId;
+main
+
+    try {
+        updateStatus("📤 Sending audio...");
+        
+        // --- STAGE 1: Fast Transcription (AWAIT) ---
+        const transRes = await fetch(`${API_ENDPOINT}/process-audio`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio_data: base64, chunk_id: currentChunk })
+        });
+        
+        if (!transRes.ok) {
+            throw new Error(`Transcription failed: ${transRes.status}`);
+        }
+        
+        const transData = await transRes.json();
+        
+        // INSTANTLY show transcript as soon as we have it
+        if (transData.transcript) {
+            updateTranscriptUI(currentChunk, transData.transcript);
+            updateStatus("🎙️ Listening...");
+        } else {
+            updateStatus("⚠️ No speech detected");
+            return;
         }
 
-        function updateStatus(msg) { document.getElementById('statusBox').innerText = msg; }
+        // --- STAGE 2: Analyze in Background (every 2 chunks to save API usage) ---
+        analysisCounter++;
+        if (analysisCounter >= 2) {
+            analysisCounter = 0;  // Reset counter
+            
+            // Fire off analysis without waiting
+            fetch(`${API_ENDPOINT}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript: transData.transcript })
+            })
+            .then(analRes => {
+                if (!analRes.ok) throw new Error(`Analysis failed: ${analRes.status}`);
+                return analRes.json();
+            })
+            .then(analData => {
+                updateRiskUI(analData);
+            })
+            .catch(e => {
+                console.error("Analysis error:", e);
+            });
+        } else {
+            updateStatus("🎙️ Buffering for analysis...");
+        }
+
+    } catch (e) { 
+        console.error("Error:", e); 
+        updateStatus(`❌ Error: ${e.message}`);
+    }
+}
+
+function updateTranscriptUI(id, text) {
+    const chunkDiv = document.createElement('div');
+    chunkDiv.className = 'transcript-chunk';
+    chunkDiv.innerHTML = `<strong>[Chunk ${id}]:</strong> ${text}`;
+    transcriptBox.appendChild(chunkDiv);
+    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+}
+
+function updateRiskUI(data) {
+    riskSection.style.display = 'block';
+    const riskEl = document.getElementById('riskLevel');
+    riskEl.className = `risk-level ${data.risk_level}`;
+    riskEl.innerText = data.risk_level.toUpperCase();
+    
+    const scamTypeText = data.scam_type || "None detected";
+    document.getElementById('scamTypeText').innerText = scamTypeText;
+    
+    // Update risk text display
+    document.getElementById('riskText').innerText = data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1);
+    
+    // Update confidence bar
+    let confidence = data.confidence;
+    if (typeof confidence === 'string') {
+        confidence = parseFloat(confidence);
+    }
+    if (isNaN(confidence)) {
+        confidence = 0;
+    }
+    const confidencePercent = Math.min(100, Math.max(0, confidence * 100));
+    document.getElementById('confidenceFill').style.width = confidencePercent + '%';
+    
+    // Display reasons
+    const list = document.getElementById('reasonsList');
+    list.innerHTML = '';
+    if (data.reasons && data.reasons.length > 0) {
+        data.reasons.forEach(r => {
+            const li = document.createElement('li');
+            li.innerText = r;
+            list.appendChild(li);
+        });
+    } else {
+        const li = document.createElement('li');
+        li.innerText = 'No specific indicators detected';
+        list.appendChild(li);
+    }
+    
+    // Track HIGH risk alerts
+    if (data.risk_level === 'high') {
+        const timestamp = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        const alert = {
+            time: timestamp,
+            scamType: scamTypeText,
+            confidence: confidence,
+            reasons: data.reasons || []
+        };
+        alerts.push(alert);
+        
+        // Update alerts button to red and highlight
+        const alertsBtn = document.querySelector('[data-view="alerts"]');
+        alertsBtn.classList.add('high-alert');
+        
+        // Add to alerts list
+        addAlertToUI(alert);
+    }
+}
+
+function updateStatus(msg) { 
+    document.getElementById('statusBox').innerText = msg; 
+}
+
+function addAlertToUI(alert) {
+    const alertsBox = document.getElementById('alertsBox');
+    
+    // Clear empty message if present
+    const emptyMsg = alertsBox.querySelector('.empty-message');
+    if (emptyMsg) {
+        emptyMsg.remove();
+    }
+    
+    // Create alert item
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert-item';
+    
+    const timeStr = `${Math.floor(alert.time / 60)}:${(alert.time % 60).toString().padStart(2, '0')}`;
+    const confidencePercent = (alert.confidence * 100).toFixed(0);
+    
+    let alertHtml = `
+        <div class="alert-type">🚨 ${alert.scamType}</div>
+        <div class="alert-time">[${timeStr}] Confidence: ${confidencePercent}%</div>
+    `;
+    
+    if (alert.reasons && alert.reasons.length > 0) {
+        alertHtml += '<div class="alert-text">' + alert.reasons.join(' • ') + '</div>';
+    }
+    
+    alertDiv.innerHTML = alertHtml;
+    
+    // Add to top of alerts box
+    alertsBox.insertBefore(alertDiv, alertsBox.firstChild);
+}
+        
+function updateStatus(msg) { 
+    document.getElementById('statusBox').innerText = msg; 
+}
         
         stopBtn.onclick = () => {
             isRecording = false;
@@ -291,7 +996,37 @@
             startBtn.disabled = false;
             stopBtn.disabled = true;
             document.querySelector('.recording-indicator').classList.remove('active');
-            updateStatus("⏹️ Monitoring paused.");
+            updateStatus("⏹️ Monitoring paused. Click 'Reset' to start a new conversation.");
+        };
+        
+        const resetBtn = document.getElementById('resetBtn');
+        resetBtn.onclick = async () => {
+            // Clear UI
+            transcriptBox.innerHTML = '';
+            riskSection.style.display = 'none';
+            chunkId = 0;
+            audioChunks = [];
+            alerts = [];
+            startTime = null;
+            updateStatus("System ready...");
+            
+            // Reset alerts UI
+            document.querySelector('[data-view="alerts"]').classList.remove('high-alert');
+            const alertsBox = document.getElementById('alertsBox');
+            alertsBox.innerHTML = '<div class="empty-message">No high-risk alerts detected yet</div>';
+            
+            // Switch back to transcript view
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('[data-view="transcript"]').classList.add('active');
+            document.getElementById('transcriptView').classList.add('active');
+            document.getElementById('alertsView').classList.remove('active');
+            
+            // Reset backend context
+            try {
+                await fetch(`${API_ENDPOINT}/reset`, { method: 'POST' });
+            } catch (e) {
+                console.error("Reset failed:", e);
+            }
         };
         
         // Reset button if it exists

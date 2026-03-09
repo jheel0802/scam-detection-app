@@ -33,16 +33,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+"""FastAPI main application module."""
+
 # Configure CORS
-origins = [
-    FRONTEND_URL,
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-]
+# In production we allow all origins to keep deployment simple.
+# If you want to lock this down later, replace ["*"] with a list
+# of explicit origins like FRONTEND_URL and localhost URLs.
+origins = ["*"]
 
 # Global context manager (for transcripts)
 context_manager = get_context_manager()
